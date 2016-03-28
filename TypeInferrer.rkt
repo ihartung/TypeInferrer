@@ -28,6 +28,26 @@
   [eqc (lhs Type?) (rhs Type?)])
 
 
+;(parse se) → Expr?
+;  se : s-expression?
+
+
+;(alpha-vary e) → Expr?
+;  e : Expr?
+
+;(generate-constraints e-id e) → (listof Constraint?)
+;  e-id : symbol?
+;  e : Expr?
+
+;(unify loc) → (listof Constraint?)
+;  loc : (listof Constraint?)
+
+;(infer-type e) → Type?
+;  e : Expr?
+
+
+
+
 ; type=?/mapping : hash hash Type Type -> Bool
 ; determines if types are equal modulo renaming
 (define (type=?/mapping ht1 ht2 t1 t2)
