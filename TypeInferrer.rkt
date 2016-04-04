@@ -29,7 +29,60 @@
 
 
 ;(parse se) → Expr?
-;  se : s-expression?
+(define (parse se)
+  (cond
+    [(number? se) (num se)]
+    [(equal? se 'true) (bool #t)]
+    [(equal? se 'false) (bool #f)]
+    [(symbol? se) (if(or (equal? se '+)
+                           (equal? se '*)
+                           (equal? se '-)
+                           (equal? se 'with)
+                           (equal? se 'fun)
+                           (equal? se 'bif)
+                           (equal? se 'nempty)
+                           (equal? se 'iszero))
+                    (error 'parse (string-append "not an id: " (symbol->string se)))
+                    (id se))]
+    [(and (list? se) (not (empty? se)))
+     (cond
+       [(and (procedure? (look-up (first se))) (not (= (length (rest se)) 2))) (error 'parse "Illegal syntax")]
+       [(and (not (number? (first se))) (> (length (rest se)) 1))
+        (case (first se)
+          [(+) (bin-num-op (look-up '+)
+                           (parse (second se))
+                           (parse (third se)))]
+          [(-) (bin-num-op (look-up '-)
+                           (parse (second se))
+                           (parse (third se)))]
+          [(*) (bin-num-op (look-up '*)
+                           (parse (second se))
+                           (parse (third se)))]
+          [(with) (with (first (second se)) (parse (second (second se))) (parse (third se)))]
+          [(fun) (fun (first (second se)) (type-lookup (third (second se))) (type-lookup (fourth se)) (parse (fifth se)))]
+          [(bif) (bif (parse (second se))
+                          (parse (third se))
+                          (parse (fourth se)))]
+          [else (if (= (length se) 2)
+                    (app (parse (first se))
+                         (parse (second se)))
+                    (error 'parse "Illegal syntax"))]
+          
+          )]
+       [(and (symbol? (first se)) (= (length (rest se)) 1))
+        (cond
+          [(equal? (first se) 'iszero) (iszero (parse (second se)))]
+          [(equal? (first se) 'istempty) (istempty (parse (second se)))]
+          [(equal? (first se) 'tfirst) (tfirst (parse (second se)))]
+          [(equal? (first se) 'trest) (trest (parse (second se)))]
+          [else (error 'parse "Illegal syntax")])]
+       [else
+        (if (> (length se) 1)
+            (tcons (parse (first se)) (parse (rest se)))
+            (tcons (parse (first se)) (tempty)))]
+       )]
+[(and (list? se) (empty? se)) (tempty)]
+[else (error 'parse "Illegal syntax")]))
 
 
 ;(alpha-vary e) → Expr?
