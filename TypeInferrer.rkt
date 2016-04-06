@@ -28,6 +28,24 @@
   [eqc (lhs Type?) (rhs Type?)])
 
 
+
+;op-table
+; : (listof (list/c symbol? (number? number? . -> . number?)))
+(define op-table
+  (list
+   (list '+ +)
+   (list '- -)
+   (list '* *)))
+   
+  
+;(lookup-op op) → (or/c procedure? false/c)
+;  op : symbol?
+(define (look-up op)
+  (if (boolean? (assoc op op-table))
+      #f
+      (second (assoc op op-table))))
+
+
 ;(parse se) → Expr?
 (define (parse se)
   (cond
@@ -85,8 +103,32 @@
 [else (error 'parse "Illegal syntax")]))
 
 
+(define av_hash (make-hasheq))
+
 ;(alpha-vary e) → Expr?
 ;  e : Expr?
+(define (alpha-vary e)
+  (type-case Expr e
+    [num (n) e]
+    [id (v) (hash-ref av_hash v)]
+    [bool (b) e]
+    [bin-num-op (o l r) e]
+    [iszero (e) e]
+    ;make sure 'then and 'else have the same return type and then return that type
+    [bif (test then else) e]
+    [with (bound-id bound-body body)
+          (local
+            [(define unique (gensym bound-id))
+             (hash-set av_hash '([bound-id . unique]))]
+            (with (alpha-vary bound-id) (alpha-vary bound-body) (alpha-vary body)))]
+    [fun (arg-id arg-type result-type body) e]
+    [app (fun-expr arg-expr) e]
+    [nempty () e]
+    [ncons (first rest) e]
+    [nfirst (e) e]
+    [nrest (e) e]
+    [isnempty (e) e]))
+
 
 ;(generate-constraints e-id e) → (listof Constraint?)
 ;  e-id : symbol?
