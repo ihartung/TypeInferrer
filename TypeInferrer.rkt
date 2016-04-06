@@ -77,7 +77,7 @@
                            (parse (second se))
                            (parse (third se)))]
           [(with) (with (first (second se)) (parse (second (second se))) (parse (third se)))]
-          [(fun) (fun (first (second se)) (type-lookup (third (second se))) (type-lookup (fourth se)) (parse (fifth se)))]
+          [(fun) (fun (first (second se)) (parse (third se)))]
           [(bif) (bif (parse (second se))
                           (parse (third se))
                           (parse (fourth se)))]
@@ -103,31 +103,30 @@
 [else (error 'parse "Illegal syntax")]))
 
 
-(define av_hash (make-hasheq))
+(define av_hash (make-hash))
 
 ;(alpha-vary e) → Expr?
 ;  e : Expr?
 (define (alpha-vary e)
   (type-case Expr e
     [num (n) e]
-    [id (v) (hash-ref av_hash v)]
+    [id (v) (id (hash-ref av_hash v))]
     [bool (b) e]
     [bin-num-op (o l r) e]
     [iszero (e) e]
-    ;make sure 'then and 'else have the same return type and then return that type
     [bif (test then else) e]
     [with (bound-id bound-body body)
-          (local
-            [(define unique (gensym bound-id))
-             (hash-set av_hash '([bound-id . unique]))]
-            (with (alpha-vary bound-id) (alpha-vary bound-body) (alpha-vary body)))]
-    [fun (arg-id arg-type result-type body) e]
+            (begin
+              (hash-set! av_hash bound-id (gensym bound-id))
+              (with (hash-ref av_hash bound-id) (alpha-vary bound-body) (alpha-vary body)))]
+    [rec-with (bound-id bound-body body) e]
+    [fun (arg-id body) e]
     [app (fun-expr arg-expr) e]
-    [nempty () e]
-    [ncons (first rest) e]
-    [nfirst (e) e]
-    [nrest (e) e]
-    [isnempty (e) e]))
+    [tempty () e]
+    [tcons (first rest) e]
+    [tfirst (e) e]
+    [trest (e) e]
+    [istempty (e) e]))
 
 
 ;(generate-constraints e-id e) → (listof Constraint?)
