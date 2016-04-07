@@ -77,10 +77,14 @@
                            (parse (second se))
                            (parse (third se)))]
           [(with) (with (first (second se)) (parse (second (second se))) (parse (third se)))]
+          [(rec) (rec-with (first (second se)) (parse (second (second se))) (parse (third se)))]
           [(fun) (fun (first (second se)) (parse (third se)))]
           [(bif) (bif (parse (second se))
                           (parse (third se))
                           (parse (fourth se)))]
+          [(tcons) (if (> (length se) 2)
+                       (tcons (parse (first se)) (parse (rest se)))
+                       (tcons (parse (first se)) (tempty)))]
           [else (if (= (length se) 2)
                     (app (parse (first se))
                          (parse (second se)))
@@ -94,10 +98,6 @@
           [(equal? (first se) 'tfirst) (tfirst (parse (second se)))]
           [(equal? (first se) 'trest) (trest (parse (second se)))]
           [else (error 'parse "Illegal syntax")])]
-       [else
-        (if (> (length se) 1)
-            (tcons (parse (first se)) (parse (rest se)))
-            (tcons (parse (first se)) (tempty)))]
        )]
 [(and (list? se) (empty? se)) (tempty)]
 [else (error 'parse "Illegal syntax")]))
@@ -110,18 +110,23 @@
 (define (alpha-vary e)
   (type-case Expr e
     [num (n) e]
-    [id (v) (id (hash-ref av_hash v))]
+    [id (v) (id (hash-ref av_hash v (error 'alpha-vary "unbound ID")))]
     [bool (b) e]
-    [bin-num-op (o l r) e]
-    [iszero (e) e]
+    [bin-num-op (o l r) (bin-num-op o (alpha-vary l) (alpha-vary r))]
+    [iszero (e) (iszero (alpha-vary e))]
     [bif (test then else) e]
     [with (bound-id bound-body body)
+          (local
+            [(define bb (alpha-vary bound-body))]
             (begin
               (hash-set! av_hash bound-id (gensym bound-id))
-              (with (hash-ref av_hash bound-id) (alpha-vary bound-body) (alpha-vary body)))]
-    [rec-with (bound-id bound-body body) e]
-    [fun (arg-id body) e]
-    [app (fun-expr arg-expr) e]
+              (with (hash-ref av_hash bound-id) bb (alpha-vary body))))]
+    [rec-with (bound-id bound-body body)
+            (begin
+              (hash-set! av_hash bound-id (gensym bound-id))
+              (rec-with (hash-ref av_hash bound-id) (alpha-vary bound-body) (alpha-vary body)))]
+    [fun (arg-id body) (fun arg-id (alpha-vary body))]
+    [app (fun-expr arg-expr) (app (alpha-vary fun-expr) (alpha-vary arg-expr))]
     [tempty () e]
     [tcons (first rest) e]
     [tfirst (e) e]
@@ -135,9 +140,24 @@
 
 ;(unify loc) → (listof Constraint?)
 ;  loc : (listof Constraint?)
+(define (unify loc)
+  (cond
+    [(empty? loc) empty]
+    [(cons? loc)
+     (let ([l (eqc (first loc))]
+           [r (eqc (first loc))])
+       (type-case Type l
+         [t-num () loc]
+         [t-bool () loc]
+         [t-list (et) loc]
+         [t-fun (at rt) loc]
+         [t-var (st) loc]
+         ))]))
+       
 
 ;(infer-type e) → Type?
 ;  e : Expr?
+(define (infer-type e) e)
 
 
 
