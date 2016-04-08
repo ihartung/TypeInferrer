@@ -435,15 +435,15 @@
 ; * Is there an example of alpha-varying a id expression properly?
 (test/exn (alpha-vary (parse 'x)) "unbound")
 ; * Is there an example of alpha-varying a with expression properly?
-;(test (alpha-vary (parse '(with (x 5) x))) ...)
+(alpha-vary (parse '(with (x 5) x)))
 ; * Is there an example of alpha-varying a rec expression properly?
-;(test (alpha-vary (parse '(rec (x (+ x 4)) x))) ...)
+(alpha-vary (parse '(rec (f (fun (a) (bif (iszero a) a (f (+ a -1))))) f)))
 ; * Is there an example of alpha-varying a fun expression properly?
-(test (alpha-vary (parse '(fun (x) x))) (parse '(fun (x) x)))
+(alpha-vary (parse '(fun (x) x)))
 ; * Is there an example of alpha-varying a app expression properly?
-(test (alpha-vary (parse '((fun (x) x) 5))) (parse '((fun (x) x) 5)))
+(alpha-vary (parse '((fun (x) x) 5)))
 ; * Is there an example of alpha-varying a tempty expression properly?
-(test (alpha-vary (parse '())) (tempty))
+(test (alpha-vary (parse 'tempty)) (tempty))
 ; * Is there an example of alpha-varying a tcons expression properly?
 (test (alpha-vary (parse '(tcons 4 5))) (parse '(tcons 4 5)))
 ; * Is there an example of alpha-varying a tempty? expression properly?
@@ -560,7 +560,7 @@
         (eqc (t-var 'g41104) (t-num))
         (eqc (t-var 'g41105) (t-list (t-var 'g41106))))) #t)
 
-;Function: unify                                    ???????????????
+;Function: unify  
 ; * Is there a Case 1 case test?
 (test (unify (list (eqc (t-num) (t-num))
                    (eqc (t-bool) (t-bool))))
@@ -685,13 +685,13 @@
 ; Expression:  fun
 ; * Is there an example of infer-type on a correct fun expression?
 (test/pred (infer-type (parse '(fun (x) (- 15 x)))) (type=? (t-fun (t-num) (t-num))))
-; * Is there a test case for a mis-use of the formal parameter?               ?????????
+; * Is there a test case for a mis-use of the formal parameter? 
 (test/exn (infer-type (parse '(fun (x) (bif x (- 15 x) (- 12 x))))) "Type Error")
 
 ; Expression:  app
 ; * Is there an example of infer-type on a correct app expression?
 (test/pred (infer-type (parse '((fun (x) (- 15 x)) 5))) (type=? (t-num)))
-; * Is there a test case for the operator not a function?                     ?????????????
+; * Is there a test case for the operator not a function? 
 (test/exn (infer-type (parse '(with (x (tcons 1 tempty)) (x 4)))) "Type Error")
 ; * Is there a test case for a wrong argument?
 (test/exn (infer-type (parse '((fun (x) (- 15 x)) false))) "Type Error")
