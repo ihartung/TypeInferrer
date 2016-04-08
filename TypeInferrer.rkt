@@ -658,13 +658,13 @@
 
 ; Expression:  id
 ; * Is there an example of infer-type on a correct id expression?
-(test/pred (infer-type (parse 'x)) (type=? (t-var 'b)))
+(test/pred (infer-type (parse '(with (x 5) x))) (type=? (t-num)))
 ; * Is there a test case for an unbound identifier?
 (test/exn (infer-type (parse '(with (x 5) y))) "unbound")
 
 ; Expression:  with
 ; * Is there an example of infer-type on a correct with expression?
-(test/pred (infer-type (parse '(with (x 5) x))) (type=? (t-num)))
+(test/pred (infer-type (parse '(with (x false) (with (x 5) x)))) (type=? (t-num)))
 ; * Is there a test case for a mis-use of a bound variable?
 (test/exn (infer-type (parse '(with (x false) (+ x x)))) "Type Error")
 
