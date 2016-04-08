@@ -1,5 +1,7 @@
 #lang plai
 
+;Isaac Hartung and Matthew Hoiland
+
 (print-only-errors #t)
 
 (define-type Expr
@@ -415,6 +417,8 @@
 
 ;__________________________________________________TESTS___________________________________________________________
 
+(writeln "alpha-vary tests")
+
 ;Function: alpha-vary
 ; * Is there an example of alpha-varying a number expression properly?
 (test (alpha-vary (parse 5)) (num 5))
@@ -435,12 +439,16 @@
 ; * Is there an example of alpha-varying a id expression properly?
 (test/exn (alpha-vary (parse 'x)) "unbound")
 ; * Is there an example of alpha-varying a with expression properly?
+(writeln "with")
 (alpha-vary (parse '(with (x 5) x)))
 ; * Is there an example of alpha-varying a rec expression properly?
+(writeln "rec")
 (alpha-vary (parse '(rec (f (fun (a) (bif (iszero a) a (f (+ a -1))))) f)))
 ; * Is there an example of alpha-varying a fun expression properly?
+(writeln "fun")
 (alpha-vary (parse '(fun (x) x)))
 ; * Is there an example of alpha-varying a app expression properly?
+(writeln "app")
 (alpha-vary (parse '((fun (x) x) 5)))
 ; * Is there an example of alpha-varying a tempty expression properly?
 (test (alpha-vary (parse 'tempty)) (tempty))
@@ -658,13 +666,13 @@
 
 ; Expression:  id
 ; * Is there an example of infer-type on a correct id expression?
-(test/pred (infer-type (parse 'x)) (type=? (t-var 'b)))
+(test/pred (infer-type (parse '(with (x 5) x))) (type=? (t-num)))
 ; * Is there a test case for an unbound identifier?
 (test/exn (infer-type (parse '(with (x 5) y))) "unbound")
 
 ; Expression:  with
 ; * Is there an example of infer-type on a correct with expression?
-(test/pred (infer-type (parse '(with (x 5) x))) (type=? (t-num)))
+(test/pred (infer-type (parse '(with (x false) (with (x 5) x)))) (type=? (t-num)))
 ; * Is there a test case for a mis-use of a bound variable?
 (test/exn (infer-type (parse '(with (x false) (+ x x)))) "Type Error")
 
