@@ -82,13 +82,8 @@
           [(bif) (bif (parse (second se))
                           (parse (third se))
                           (parse (fourth se)))]
-          [(tcons) (if (> (length se) 2)
-                       (tcons (parse (first se)) (parse (rest se)))
-                       (tcons (parse (first se)) (tempty)))]
-          [else (if (= (length se) 2)
-                    (app (parse (first se))
-                         (parse (second se)))
-                    (error 'parse "Illegal syntax"))]
+          [(tcons) (tcons (parse (second se)) (parse (append '(tcons) (rest (rest se)))))]
+          [else (error 'parse "Illegal syntax")]
           
           )]
        [(and (symbol? (first se)) (= (length (rest se)) 1))
@@ -97,8 +92,14 @@
           [(equal? (first se) 'istempty) (istempty (parse (second se)))]
           [(equal? (first se) 'tfirst) (tfirst (parse (second se)))]
           [(equal? (first se) 'trest) (trest (parse (second se)))]
-          [else (error 'parse "Illegal syntax")])]
+          [(equal? (first se) 'tcons) (tcons (parse (second se)) (tempty))]
+          [else (error 'parse "Illegal syntax")]
+          )]
+       [(and (list? (first se)) (equal? 'fun (first (first se))))
+                    (app (parse (first se))
+                         (parse (second se)))]
        )]
+    
 [(and (list? se) (empty? se)) (tempty)]
 [else (error 'parse "Illegal syntax")]))
 
@@ -107,31 +108,42 @@
 
 ;(alpha-vary e) → Expr?
 ;  e : Expr?
-(define (alpha-vary e)
+(define (alpha-vary e) (begin0
+                         (av e)
+                         (hash-clear! av_hash)))
+
+
+
+(define (av e)
   (type-case Expr e
     [num (n) e]
-    [id (v) (id (hash-ref av_hash v (error 'alpha-vary "unbound ID")))]
+    [id (v) (id (hash-ref av_hash v (lambda () (error 'alpha-vary (string-append "unbound ID: " (symbol->string v))))))]
     [bool (b) e]
-    [bin-num-op (o l r) (bin-num-op o (alpha-vary l) (alpha-vary r))]
-    [iszero (e) (iszero (alpha-vary e))]
-    [bif (test then else) e]
+    [bin-num-op (o l r) (bin-num-op o (av l) (av r))]
+    [iszero (e) (iszero (av e))]
+    [bif (test then else) (bif (av test) (av then) (av else))]
     [with (bound-id bound-body body)
           (local
-            [(define bb (alpha-vary bound-body))]
+            [(define bb (av bound-body))]
             (begin
               (hash-set! av_hash bound-id (gensym bound-id))
-              (with (hash-ref av_hash bound-id) bb (alpha-vary body))))]
+              ;(write (hash-ref av_hash 'x))
+              (with (hash-ref av_hash bound-id) bb (av body))
+              ))]
     [rec-with (bound-id bound-body body)
             (begin
               (hash-set! av_hash bound-id (gensym bound-id))
-              (rec-with (hash-ref av_hash bound-id) (alpha-vary bound-body) (alpha-vary body)))]
-    [fun (arg-id body) (fun arg-id (alpha-vary body))]
-    [app (fun-expr arg-expr) (app (alpha-vary fun-expr) (alpha-vary arg-expr))]
+              (rec-with (hash-ref av_hash bound-id) (av bound-body) (av body)))]
+    [fun (arg-id body)
+         (begin
+              (hash-set! av_hash arg-id (gensym arg-id))
+              (fun (hash-ref av_hash arg-id) (av body)))]
+    [app (fun-expr arg-expr) (app (av fun-expr) (av arg-expr))]
     [tempty () e]
     [tcons (first rest) e]
-    [tfirst (e) e]
-    [trest (e) e]
-    [istempty (e) e]))
+    [tfirst (x) e]
+    [trest (x) e]
+    [istempty (x) e]))
 
 
 ;(generate-constraints e-id e) → (listof Constraint?)
@@ -237,3 +249,161 @@
       (error 'constraint-list=?
              "~s and ~a are not equal (modulo renaming)"
              lc1 lc2)))
+
+
+
+;__________________________________________________TESTS___________________________________________________________
+
+;Function: alpha-vary
+; * Is there an example of alpha-varying a number expression properly?
+(test (alpha-vary (parse 5)) (num 5))
+; * Is there an example of alpha-varying a true expression properly?
+(test (alpha-vary (parse 'true)) (bool #t))
+; * Is there an example of alpha-varying a false expression properly?
+(test (alpha-vary (parse 'false)) (bool #f))
+; * Is there an example of alpha-varying a + expression properly?
+(test (alpha-vary (parse '(+ 4 5))) (parse '(+ 4 5)))
+; * Is there an example of alpha-varying a - expression properly?
+(test (alpha-vary (parse '(- 4 5))) (parse '(- 4 5)))
+; * Is there an example of alpha-varying a * expression properly?
+(test (alpha-vary (parse '(* 4 5))) (parse '(* 4 5)))
+; * Is there an example of alpha-varying a iszero expression properly?
+(test (alpha-vary (parse '(iszero 0))) (parse '(iszero 0)))
+; * Is there an example of alpha-varying a bif expression properly?
+(test (alpha-vary (parse '(bif true 4 5))) (parse '(bif true 4 5)))
+; * Is there an example of alpha-varying a id expression properly?
+(test/exn (alpha-vary (parse 'x)) "unbound")
+; * Is there an example of alpha-varying a with expression properly?
+;(test (alpha-vary (parse '(with (x 5) x))) ...)
+; * Is there an example of alpha-varying a rec expression properly?
+;(test (alpha-vary (parse '(rec (x (+ x 4)) x))) ...)
+; * Is there an example of alpha-varying a fun expression properly?
+(test (alpha-vary (parse '(fun (x) x))) (parse '(fun (x) x)))
+; * Is there an example of alpha-varying a app expression properly?
+(test (alpha-vary (parse '((fun (x) x) 5))) (parse '((fun (x) x) 5)))
+; * Is there an example of alpha-varying a tempty expression properly?
+(test (alpha-vary (parse '())) (tempty))
+; * Is there an example of alpha-varying a tcons expression properly?
+(test (alpha-vary (parse '(tcons 4 5))) (parse '(tcons 4 5)))
+; * Is there an example of alpha-varying a tempty? expression properly?
+(test (alpha-vary (parse '(istempty ()))) (parse '(istempty ())))
+; * Is there an example of alpha-varying a tfirst expression properly?
+(test (alpha-vary (parse '(tfirst (tcons 4 5)))) (parse '(tfirst (tcons 4 5))))
+; * Is there an example of alpha-varying a trest expression properly?
+(test (alpha-vary (parse '(trest (tcons 4 5)))) (parse '(trest (tcons 4 5))))
+
+;Function: generate-constraints
+; * Is the function correct?
+; * Is the function documented correctly (i.e. contract and purpose statement)?
+; * Is there an example of generating constraints for a number expression?
+; * Is there an example of generating constraints for a true expression?
+; * Is there an example of generating constraints for a false expression?
+; * Is there an example of generating constraints for a + expression?
+; * Is there an example of generating constraints for a - expression?
+; * Is there an example of generating constraints for a * expression?
+; * Is there an example of generating constraints for a iszero expression?
+; * Is there an example of generating constraints for a bif expression?
+; * Is there an example of generating constraints for a id expression?
+; * Is there an example of generating constraints for a with expression?
+; * Is there an example of generating constraints for a rec expression?
+; * Is there an example of generating constraints for a fun expression?
+; * Is there an example of generating constraints for a app expression?
+; * Is there an example of generating constraints for a tempty expression?
+; * Is there an example of generating constraints for a tcons expression?
+; * Is there an example of generating constraints for a tempty? expression?
+; * Is there an example of generating constraints for a tfirst expression?
+; * Is there an example of generating constraints for a trest expression?
+
+;Function: unify
+; * Is the function correct?
+; * Is the function documented correctly (i.e. contract and purpose statement)?
+; * Is there a Case 1 case test?
+; * Is there a Case 2 case test?
+; * Is there a Case 2 (occurs check) case test?
+; * Is there a Case 3 case test?
+; * Is there a Case 4 (lists) case test?
+; * Is there a Case 4 (functions) case test?
+; * Is there a Case 5 case test?
+
+;Function: infer-type
+; * Is the function correct?
+; * Is the function documented correctly (i.e. contract and purpose statement)?
+; * Does infer-type allow through runtime errors?
+
+; Expression:  num
+; * Is there an example of infer-type on a correct num expression?
+
+; Expression:  true
+; * Is there an example of infer-type on a correct true expression?
+
+; Expression:  false
+; * Is there an example of infer-type on a correct false expression?
+
+; Expression:  +
+; * Is there an example of infer-type on a correct + expression?
+; * Is there a test case for a lhs error?
+; * Is there a test case for a rhs error?
+
+; Expression:  -
+; * Is there an example of infer-type on a correct - expression?
+; * Is there a test case for a lhs error (not a number)?
+; * Is there a test case for a rhs error (not a number)?
+
+; Expression:  *
+; * Is there an example of infer-type on a correct * expression?
+; * Is there a test case for a lhs error (not a number)?
+; * Is there a test case for a rhs error (not a number)?
+
+; Expression:  iszero
+; * Is there an example of infer-type on a correct iszero expression?
+; * Is there a test case for an input that is not a number?
+
+; Expression:  bif
+; * Is there an example of infer-type on a correct bif expression?
+; * Is there a test case for a non-boolean conditional error?
+; * Is there a test case for a branch return value mismatch error?
+
+; Expression:  id
+; * Is there an example of infer-type on a correct id expression?
+; * Is there a test case for an unbound identifier?
+
+; Expression:  with
+; * Is there an example of infer-type on a correct with expression?
+; * Is there a test case for a mis-use of a bound variable?
+
+; Expression:  rec
+; * Is there an example of infer-type on a correct rec expression?
+; * Is there a test case for a mis-use of a bound variable in bexpr?
+; * Is there a test case for a mis-use of a bound variable in body?
+
+; Expression:  fun
+; * Is there an example of infer-type on a correct fun expression?
+; * Is there a test case for a mis-use of the formal parameter?
+
+; Expression:  app
+; * Is there an example of infer-type on a correct app expression?
+; * Is there a test case for the operator not a function?
+; * Is there a test case for a wrong argument?
+
+; Expression:  tempty
+; * Is there an example of infer-type on a correct tempty expression?
+
+; Expression:  tcons
+; * Is there an example of infer-type on a correct tcons expression?
+; * Is there a test case for an element mismatch?
+; * Is there a test case for not a list?
+
+; Expression:  tempty?
+; * Is there an example of infer-type on a correct tempty? expression?
+; * Is there a test case for not a list?
+
+; Expression:  tfirst
+; * Is there an example of infer-type on a correct tfirst expression?
+; * Is there a test case for not a list?
+
+; Expression:  trest
+; * Is there an example of infer-type on a correct trest expression?
+; * Is there a test case for not a list?
+
+;Extra Credit:
+; * Is there a test case for A -> B from infer-type?
