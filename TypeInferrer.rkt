@@ -111,6 +111,7 @@
 
 ;(alpha-vary e) → Expr?
 ;  e : Expr?
+;takes an expresssion and replaces id's with unique id's.
 (define (alpha-vary e) (begin0
                          (av e)
                          (hash-clear! av_hash)))
@@ -151,6 +152,7 @@
 ;(generate-constraints e-id e) → (listof Constraint?)
 ;  e-id : symbol?
 ;  e : Expr?
+; takes an expression and a unique id (gensym) and generates the list of constraints for that expression.
 (define (generate-constraints e-id e)
   (type-case Expr e
     [num (n) (list (eqc (t-var e-id) (t-num)))]
@@ -247,6 +249,7 @@
 
 ;(unify loc) → (listof Constraint?)
 ;  loc : (listof Constraint?)
+; takes a list of constraints and unifies them, throwing errors if there is a conflict.
 (define (unify loc)
   (unify/s loc empty))
 
@@ -340,6 +343,7 @@
 
 ;(infer-type e) → Type?
 ;  e : Expr?
+;runs alpha-vary, generate-constraints, and unify on an expression and then extracts the type of the expression.
 (define (infer-type e)
   (local [(define e-id (gensym))]
     (lookup-type
