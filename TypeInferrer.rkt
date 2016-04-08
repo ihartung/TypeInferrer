@@ -461,8 +461,6 @@
 (test (alpha-vary (parse '(trest (tcons 4 5)))) (parse '(trest (tcons 4 5))))
 
 ;Function: generate-constraints
-; * Is the function correct?
-; * Is the function documented correctly (i.e. contract and purpose statement)?
 ; * Is there an example of generating constraints for a number expression?
 (test ((constraint-list=? (generate-constraints (gensym) (parse '4)))
        (list (eqc (t-var 'g154769) (t-num)))) #t)
@@ -568,9 +566,7 @@
                            (eqc (t-var 'g178374) (t-num))
                            (eqc (t-var 'g178375) (t-list (t-var 'g178376))))) #t)
 
-;Function: unify
-; * Is the function correct?
-; * Is the function documented correctly (i.e. contract and purpose statement)?
+;Function: unify                                    ???????????????
 ; * Is there a Case 1 case test?
 ; * Is there a Case 2 case test?
 ; * Is there a Case 2 (occurs check) case test?
@@ -580,84 +576,124 @@
 ; * Is there a Case 5 case test?
 
 ;Function: infer-type
-; * Is the function correct?
-; * Is the function documented correctly (i.e. contract and purpose statement)?
 ; * Does infer-type allow through runtime errors?
+(test/pred (infer-type (parse '(tfirst ()))) (type=? (t-var 'b)))
+
 
 ; Expression:  num
 ; * Is there an example of infer-type on a correct num expression?
+(test/pred (infer-type (parse 5)) (type=? (t-var 'b)))
+
 
 ; Expression:  true
 ; * Is there an example of infer-type on a correct true expression?
+(test/pred (infer-type (parse 'true)) (type=? (t-var 'b)))
 
 ; Expression:  false
 ; * Is there an example of infer-type on a correct false expression?
+(test/pred (infer-type (parse 'false)) (type=? (t-var 'b)))
 
 ; Expression:  +
 ; * Is there an example of infer-type on a correct + expression?
+(test/pred (infer-type (parse '(+ 4 5))) (type=? (t-var 'b)))
 ; * Is there a test case for a lhs error?
+(test/exn (infer-type (parse '(+ false 4))) "")
 ; * Is there a test case for a rhs error?
+(test/exn (infer-type (parse '(+ 4 true))) "")
 
 ; Expression:  -
 ; * Is there an example of infer-type on a correct - expression?
-; * Is there a test case for a lhs error (not a number)?
-; * Is there a test case for a rhs error (not a number)?
+(test/pred (infer-type (parse '(- 4 5))) (type=? (t-var 'b)))
+; * Is there a test case for a lhs error?
+(test/exn (infer-type (parse '(- false 4))) "")
+; * Is there a test case for a rhs error?
+(test/exn (infer-type (parse '(- 4 true))) "")
 
 ; Expression:  *
 ; * Is there an example of infer-type on a correct * expression?
-; * Is there a test case for a lhs error (not a number)?
-; * Is there a test case for a rhs error (not a number)?
+(test/pred (infer-type (parse '(* 4 5))) (type=? (t-var 'b)))
+; * Is there a test case for a lhs error?
+(test/exn (infer-type (parse '(* false 4))) "")
+; * Is there a test case for a rhs error?
+(test/exn (infer-type (parse '(* 4 true))) "")
 
 ; Expression:  iszero
 ; * Is there an example of infer-type on a correct iszero expression?
+(test/pred (infer-type (parse '(iszero 5))) (type=? (t-var 'b)))
 ; * Is there a test case for an input that is not a number?
+(test/exn (infer-type (parse '(iszero false))) "")
 
 ; Expression:  bif
 ; * Is there an example of infer-type on a correct bif expression?
+(test/pred (infer-type (parse '(bif false 4 5))) (type=? (t-var 'b)))
 ; * Is there a test case for a non-boolean conditional error?
+(test/exn (infer-type (parse '(bif (+ 3 3) 4 5))) "")
 ; * Is there a test case for a branch return value mismatch error?
+(test/exn (infer-type (parse '(bif false () 5))) "")
 
 ; Expression:  id
 ; * Is there an example of infer-type on a correct id expression?
+(test/pred (infer-type (parse 'x)) (type=? (t-var 'b)))
 ; * Is there a test case for an unbound identifier?
+(test/exn (infer-type (parse '(with (x 5) y))) "unbound")
 
 ; Expression:  with
 ; * Is there an example of infer-type on a correct with expression?
+(test/pred (infer-type (parse '(with (x 5) x))) (type=? (t-var 'b)))
 ; * Is there a test case for a mis-use of a bound variable?
+(test/exn (infer-type (parse '(with (x 5) x))) "unbound")
 
 ; Expression:  rec
 ; * Is there an example of infer-type on a correct rec expression?
+(test/pred (infer-type (parse '(rec (f (fun (x) (f x))) 5))) (type=? (t-var 'b)))
 ; * Is there a test case for a mis-use of a bound variable in bexpr?
+(test/exn (infer-type (parse '(rec (f (fun (x) (g x))) 5))) "")
 ; * Is there a test case for a mis-use of a bound variable in body?
+(test/exn (infer-type (parse '(rec (f (fun (x) (f x))) g))) "")
 
 ; Expression:  fun
 ; * Is there an example of infer-type on a correct fun expression?
-; * Is there a test case for a mis-use of the formal parameter?
+(test/pred (infer-type (parse '(fun (x) (- 15 x)))) (type=? (t-var 'b)))
+; * Is there a test case for a mis-use of the formal parameter?               ?????????
+(test/exn (infer-type (parse '(fun (x) (- 15 x)))) "")
 
 ; Expression:  app
 ; * Is there an example of infer-type on a correct app expression?
-; * Is there a test case for the operator not a function?
+(test/pred (infer-type (parse '((fun (x) (- 15 x)) 5))) (type=? (t-var 'b)))
+; * Is there a test case for the operator not a function?                     ?????????????
+(test/exn (infer-type (parse '((fun (x) (- 15 x)) 5))) "")
 ; * Is there a test case for a wrong argument?
+(test/exn (infer-type (parse '((fun (x) (- 15 x)) false))) "")
 
 ; Expression:  tempty
 ; * Is there an example of infer-type on a correct tempty expression?
+(test/pred (infer-type (parse '())) (type=? (t-var 'b)))
 
 ; Expression:  tcons
 ; * Is there an example of infer-type on a correct tcons expression?
+(test/pred (infer-type (parse '(tcons 4 5 6))) (type=? (t-var 'b)))
 ; * Is there a test case for an element mismatch?
-; * Is there a test case for not a list?
+(test/exn (infer-type (parse '(tcons 4 false 6))) "")
+; * Is there a test case for not a list?                    ?????????????
+(test/exn (infer-type (parse '(tcons 4 5 6))) "")
 
 ; Expression:  tempty?
 ; * Is there an example of infer-type on a correct tempty? expression?
+(test/pred (infer-type (parse '(istempty (tcons 4 5 6)))) (type=? (t-var 'b)))
 ; * Is there a test case for not a list?
+;(test/exn (infer-type (parse '(istempty false))) (type=? "")
 
 ; Expression:  tfirst
 ; * Is there an example of infer-type on a correct tfirst expression?
+(test/pred (infer-type (parse '(tfirst (tcons 4 5 6)))) (type=? (t-var 'b)))
 ; * Is there a test case for not a list?
+;(test/exn (infer-type (parse '(tfirst false))) (type=? "")
 
 ; Expression:  trest
 ; * Is there an example of infer-type on a correct trest expression?
+(test/pred (infer-type (parse '(trest (tcons 4 5 6)))) (type=? (t-var 'b)))
 ; * Is there a test case for not a list?
+(test/exn (infer-type (parse '(trest true))) "")
 
 ;Extra Credit:
 ; * Is there a test case for A -> B from infer-type?
